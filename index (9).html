@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Star-Delta Starter – PLC + HMI</title>
+<style>
+:root{--bg:#f4f6f9;--panel:#fff;--fg:#1b2430;--muted:#5b6675;--line:#b8c1cc;--off:#c3cad3;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f141a;--panel:#1a222c;--fg:#e6ebf1;--muted:#93a0b0;--line:#3a4756;--off:#3a4552}}
+:root[data-theme="dark"]{--bg:#0f141a;--panel:#1a222c;--fg:#e6ebf1;--muted:#93a0b0;--line:#3a4756;--off:#3a4552}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px system-ui,sans-serif;padding:10px 16px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+h1{font-size:18px;margin:0 0 2px}.sub{color:var(--muted);margin:0 0 10px;font-size:13px}
+main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 470px;gap:14px}aside{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:auto;font-size:15px}aside .stats,aside .leg{margin:0}
+svg{width:100%;height:100%;min-height:0;background:var(--panel);border:1px solid var(--line);border-radius:10px;display:block}
+svg text{fill:var(--fg);font-family:system-ui,sans-serif}.m{fill:var(--muted)!important}
+.box{fill:var(--panel);stroke:var(--line);stroke-width:1.5}
+.w{fill:none;stroke-width:4.5;stroke-linecap:round;stroke:var(--off)}
+.r{--c:#e53935}.y{--c:#f2b705}.b{--c:#1e88e5}.o{--c:#fb8c00}
+.on .w,.w.on{stroke:var(--c);stroke-dasharray:9 7;animation:fl .5s linear infinite}
+@keyframes fl{to{stroke-dashoffset:-16}}
+.cl,.bus{fill:none;stroke:var(--off);stroke-width:2;stroke-dasharray:5 4}
+.cl.on,.bus.on{stroke:#2e9e4f;animation:fl .6s linear infinite}
+.tag rect{fill:var(--panel);stroke:var(--line)}.tag text{font-size:10px;font-weight:700;text-anchor:middle}
+.tag.on rect{fill:#2e9e4f;stroke:#2e9e4f}.tag.on text{fill:#fff}
+.led{fill:var(--off);stroke:var(--line)}.led.on{fill:#2e9e4f;filter:drop-shadow(0 0 4px #2e9e4f)}.led.am.on{fill:#fb8c00;filter:drop-shadow(0 0 4px #fb8c00)}
+.btn{cursor:pointer}.btn:active{opacity:.7}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.st{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center}
+.st b{display:block;font-size:20px}.st span{color:var(--muted);font-size:12px}
+.steps{display:grid;grid-template-columns:1fr;gap:8px}.st b{font-size:24px}.step h3{font-size:16px}.step p{font-size:14px}
+.ex{background:var(--panel);border:2px solid #fb8c00;border-radius:8px;padding:10px 12px;font-size:13.5px}.ex h3{margin:0 0 4px;font-size:15px}.ex p{margin:0 0 6px;color:var(--muted)}
+.br{display:grid;grid-template-columns:118px 1fr 52px;gap:6px;align-items:center;margin:3px 0;font-size:12.5px}.br i{display:block;height:10px;border-radius:5px;background:var(--off)}.br i u{display:block;height:100%;border-radius:5px;text-decoration:none;transition:width .3s}.br b{text-align:right}
+.ex ul{margin:6px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px}.ex li{margin:2px 0}.ex li b{color:var(--fg)}
+@media (max-width:1000px){body{height:auto;overflow:auto}main{display:block}svg{height:auto}aside{margin-top:10px}}
+.step{background:var(--panel);border:2px solid var(--line);border-radius:8px;padding:10px;opacity:.6}
+.step.act{opacity:1;border-color:#2e9e4f}.step h3{margin:0 0 4px;font-size:14px}.step p{margin:0;font-size:12.5px;color:var(--muted)}
+.leg{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0;font-size:12.5px}.leg i{display:inline-block;width:22px;height:4px;vertical-align:middle;margin-right:5px;border-radius:2px}
+</style></head><body>
+<h1>Star-Delta (Y-Δ) Motor Starter — PLC + Push-button + HMI</h1>
+<p class="sub">Press START / STOP on the operator panel or the HMI screen and watch each step.</p>
+
+<main><svg preserveAspectRatio="xMidYMid meet" viewBox="0 0 920 660" role="img" aria-label="Star delta starter animation">
+<!-- POWER CIRCUIT -->
+<text x="210" y="16" text-anchor="middle" font-size="12" font-weight="700">3-PHASE 400 V SUPPLY &amp; POWER CIRCUIT</text>
+<text x="100" y="34" text-anchor="middle" font-size="12" font-weight="700" fill="#e53935" style="fill:#e53935">L1</text>
+<text x="200" y="34" text-anchor="middle" font-size="12" font-weight="700" style="fill:#f2b705">L2</text>
+<text x="300" y="34" text-anchor="middle" font-size="12" font-weight="700" style="fill:#1e88e5">L3</text>
+<g class="on" id="gFeed"><path class="w r" d="M100 42V135"/><path class="w y" d="M200 42V135"/><path class="w b" d="M300 42V135"/></g>
+<g id="gLow"><path class="w r" d="M100 165V290"/><path class="w y" d="M200 165V290"/><path class="w b" d="M300 165V290"/></g>
+<g id="gWind"><path class="w r" d="M100 290L200 380"/><path class="w y" d="M200 290L300 380"/><path class="w b" d="M300 290L100 380"/></g>
+<g id="gDelta"><path class="w r" d="M100 290V380"/><path class="w y" d="M200 290V380"/><path class="w b" d="M300 290V380"/></g>
+<g id="gStar"><path class="w o" d="M100 380V420"/><path class="w o" d="M200 380V420"/><path class="w o" d="M300 380V420"/><path class="w o" d="M100 420H300"/></g>
+<rect class="box" x="50" y="60" width="320" height="28" rx="4"/><text x="364" y="79" text-anchor="end" font-size="11" class="m">MCCB</text>
+<rect class="box" x="50" y="120" width="320" height="60" rx="4"/><text x="364" y="136" text-anchor="end" font-size="11" class="m">KM1 MAIN</text>
+<rect class="box" x="50" y="200" width="320" height="26" rx="4"/><text x="364" y="217" text-anchor="end" font-size="11" class="m">OVERLOAD</text>
+<rect class="box" x="50" y="268" width="320" height="132" rx="6" style="stroke-dasharray:5 4;fill:none"/>
+<text x="56" y="262" font-size="10" class="m">MOTOR TERMINAL BOX</text>
+<g id="blades" stroke-width="4" stroke-linecap="round">
+<circle cx="100" cy="135" r="4" fill="#e53935"/><circle cx="100" cy="165" r="4" fill="#e53935"/><line id="b0" x1="100" y1="165" x2="100" y2="135" stroke="#e53935"/>
+<circle cx="200" cy="135" r="4" fill="#f2b705"/><circle cx="200" cy="165" r="4" fill="#f2b705"/><line id="b1" x1="200" y1="165" x2="200" y2="135" stroke="#f2b705"/>
+<circle cx="300" cy="135" r="4" fill="#1e88e5"/><circle cx="300" cy="165" r="4" fill="#1e88e5"/><line id="b2" x1="300" y1="165" x2="300" y2="135" stroke="#1e88e5"/></g>
+<g font-size="10" class="m"><text x="108" y="282">U1</text><text x="208" y="282">V1</text><text x="308" y="282">W1</text><text x="108" y="396">W2</text><text x="208" y="396">U2</text><text x="308" y="396">V2</text></g>
+<g fill="var(--panel)" stroke="var(--fg)" stroke-width="2"><circle cx="100" cy="290" r="6"/><circle cx="200" cy="290" r="6"/><circle cx="300" cy="290" r="6"/><circle cx="100" cy="380" r="6"/><circle cx="200" cy="380" r="6"/><circle cx="300" cy="380" r="6"/></g>
+<g class="tag" id="tD"><rect x="83" y="303" width="34" height="18" rx="4"/><text x="100" y="316">KM2 Δ</text><rect x="183" y="303" width="34" height="18" rx="4"/><text x="200" y="316">KM2 Δ</text><rect x="283" y="303" width="34" height="18" rx="4"/><text x="300" y="316">KM2 Δ</text></g>
+<g class="tag" id="tS"><rect x="180" y="429" width="40" height="18" rx="4"/><text x="200" y="442">KM3 ★</text></g>
+<circle cx="200" cy="505" r="40" class="box"/>
+<g id="rot"><line x1="200" y1="470" x2="200" y2="540" stroke="#7a8696" stroke-width="5" stroke-linecap="round"/><line x1="165" y1="505" x2="235" y2="505" stroke="#7a8696" stroke-width="5" stroke-linecap="round"/></g>
+<circle cx="200" cy="505" r="13" fill="var(--panel)" stroke="var(--fg)" stroke-width="2"/><text x="200" y="509" text-anchor="middle" font-size="12" font-weight="700">M</text>
+<text x="255" y="486" font-size="11" class="m">3~ Induction motor</text><text id="mRpm" x="255" y="516" font-size="26" font-weight="700">0 rpm</text><text x="255" y="534" font-size="10" class="m">live motor speed</text>
+<rect class="box" x="20" y="562" width="450" height="90" rx="6"/><text x="28" y="577" font-size="10" class="m">PHASE CURRENT (live)</text>
+<line x1="30" x2="460" y1="615" y2="615" stroke="var(--line)"/>
+<path id="wv0" fill="none" stroke="#e53935" stroke-width="2"/><path id="wv1" fill="none" stroke="#f2b705" stroke-width="2"/><path id="wv2" fill="none" stroke="#1e88e5" stroke-width="2"/>
+
+<!-- coils & control wires -->
+<path class="cl" id="c0" d="M500 330H485V145H436"/><path class="cl" id="c1" d="M500 372H436"/><path class="cl" id="c2" d="M500 428H436"/>
+<g id="k0"><circle class="led" cx="420" cy="145" r="16"/><text x="420" y="149" text-anchor="middle" font-size="11" font-weight="700">KM1</text><text x="420" y="176" text-anchor="middle" font-size="9" class="m">coil·main</text></g>
+<g id="k1"><circle class="led" cx="420" cy="372" r="16"/><text x="420" y="376" text-anchor="middle" font-size="11" font-weight="700">KM2</text><text x="420" y="402" text-anchor="middle" font-size="9" class="m">coil·delta</text></g>
+<g id="k2"><circle class="led" cx="420" cy="428" r="16"/><text x="420" y="432" text-anchor="middle" font-size="11" font-weight="700">KM3</text><text x="420" y="458" text-anchor="middle" font-size="9" class="m">coil·star</text></g>
+
+<!-- OPERATOR PANEL -->
+<rect class="box" x="510" y="20" width="380" height="92" rx="8"/><text x="522" y="38" font-size="12" font-weight="700">OPERATOR PANEL (field)</text>
+<g class="btn" onclick="act('start','Push-button')"><circle cx="575" cy="73" r="20" fill="#2e9e4f"/><text x="575" y="77" text-anchor="middle" font-size="10" font-weight="700" style="fill:#fff">START</text></g>
+<g class="btn" onclick="act('stop','Push-button')"><circle cx="645" cy="73" r="20" fill="#d32f2f"/><text x="645" y="77" text-anchor="middle" font-size="10" font-weight="700" style="fill:#fff">STOP</text></g>
+<circle id="lmS" class="led am" cx="745" cy="66" r="9"/><text x="745" y="95" text-anchor="middle" font-size="10" class="m">STAR</text>
+<circle id="lmR" class="led" cx="815" cy="66" r="9"/><text x="815" y="95" text-anchor="middle" font-size="10" class="m">RUN Δ</text>
+
+<!-- HMI -->
+<rect class="box" x="510" y="124" width="380" height="148" rx="8"/><text x="522" y="142" font-size="12" font-weight="700">HMI TOUCH PANEL</text>
+<rect x="522" y="150" width="210" height="112" rx="4" fill="#102a43"/>
+<text x="532" y="170" font-size="10" style="fill:#9fb3c8">MOTOR STATE</text><text id="tState" x="532" y="190" font-size="15" font-weight="700" style="fill:#fff">READY</text>
+<text id="tTim" x="532" y="212" font-size="11" style="fill:#9fb3c8">Star timer T1: 5.0 s</text>
+<rect x="532" y="218" width="190" height="9" rx="4" fill="#243b53"/><rect id="barT" x="532" y="218" width="0" height="9" rx="4" fill="#fb8c00"/>
+<text id="tSrc" x="532" y="250" font-size="11" style="fill:#9fb3c8">Last cmd: –</text>
+<g class="btn" onclick="act('start','HMI')"><rect x="748" y="156" width="130" height="46" rx="8" fill="#2e9e4f"/><text x="813" y="184" text-anchor="middle" font-size="13" font-weight="700" style="fill:#fff">HMI START</text></g>
+<g class="btn" onclick="act('stop','HMI')"><rect x="748" y="212" width="130" height="46" rx="8" fill="#d32f2f"/><text x="813" y="240" text-anchor="middle" font-size="13" font-weight="700" style="fill:#fff">HMI STOP</text></g>
+
+<!-- PLC -->
+<rect class="box" x="500" y="288" width="390" height="202" rx="8"/><text x="700" y="304" text-anchor="middle" font-size="12" font-weight="700">PLC CONTROL UNIT</text>
+<text x="528" y="318" font-size="9" class="m">OUTPUTS</text><text x="712" y="318" font-size="9" class="m">INPUTS</text>
+<g font-size="11"><circle id="o0" class="led" cx="515" cy="330" r="7"/><text x="528" y="334">Q0.0 → KM1 Main</text>
+<circle id="o1" class="led" cx="515" cy="372" r="7"/><text x="528" y="376">Q0.2 → KM2 Delta</text>
+<circle id="o2" class="led" cx="515" cy="428" r="7"/><text x="528" y="432">Q0.1 → KM3 Star</text>
+<circle id="i0" class="led" cx="715" cy="330" r="7"/><text x="728" y="334">I0.0 START PB</text>
+<circle id="i1" class="led" cx="715" cy="352" r="7"/><text x="728" y="356">I0.1 STOP PB</text>
+<circle id="i2" class="led" cx="715" cy="374" r="7"/><text x="728" y="378">I0.2 HMI START</text>
+<circle id="i3" class="led" cx="715" cy="396" r="7"/><text x="728" y="400">I0.3 HMI STOP</text>
+<circle id="i4" class="led am" cx="715" cy="418" r="7"/><text x="728" y="422">I0.4 LEVEL LOW</text>
+<circle id="i5" class="led" cx="715" cy="440" r="7"/><text x="728" y="444">I0.5 LEVEL HIGH</text></g>
+<text x="528" y="470" font-size="11">T1 (TON) 5 s</text><rect x="620" y="462" width="250" height="9" rx="4" fill="var(--off)"/><rect id="barP" x="620" y="462" width="0" height="9" rx="4" fill="#fb8c00"/>
+<path class="bus" id="bus" d="M890 73H908V318H890M890 200H908"/>
+<!-- TANK EXAMPLE -->
+<rect class="box" x="500" y="500" width="390" height="152" rx="8"/>
+<text x="512" y="518" font-size="12" font-weight="700">REAL EXAMPLE: WATER TANK FILLING</text>
+<text x="512" y="532" font-size="10" class="m">Factory water-supply pump</text>
+<text x="512" y="602" font-size="9" class="m">sump</text>
+<g id="gPipe"><path class="w" style="--c:#29b6f6" d="M512 610H525"/><path class="w" style="--c:#29b6f6" d="M565 610H690"/></g>
+<g id="gOut"><path class="w" style="--c:#29b6f6" d="M790 626H885"/></g>
+<circle cx="545" cy="610" r="20" class="box"/>
+<g id="imp"><line x1="533" y1="610" x2="557" y2="610" stroke="#7a8696" stroke-width="4" stroke-linecap="round"/><line x1="545" y1="598" x2="545" y2="622" stroke="#7a8696" stroke-width="4" stroke-linecap="round"/></g>
+<circle cx="545" cy="610" r="5" fill="var(--panel)" stroke="var(--fg)" stroke-width="2"/>
+<text x="545" y="646" text-anchor="middle" font-size="10" class="m">Pump 37 kW</text>
+<rect id="wtr" x="692" y="632" width="96" height="0" fill="#29b6f6" opacity=".65"/>
+<rect x="690" y="526" width="100" height="108" rx="4" fill="none" stroke="var(--fg)" stroke-width="2.5"/>
+<text id="lvT" x="740" y="583" text-anchor="middle" font-size="16" font-weight="700">50 %</text>
+<circle id="sH" class="led" cx="790" cy="533" r="6"/><text x="800" y="537" font-size="10">LS-H high</text>
+<circle id="sL" class="led am" cx="790" cy="611" r="6"/><text x="800" y="615" font-size="10">LS-L low</text>
+<g class="btn" onclick="tgAuto()"><rect id="auR" x="805" y="546" width="78" height="24" rx="6" fill="#2e9e4f"/><text id="auT" x="844" y="562" text-anchor="middle" font-size="11" font-weight="700" style="fill:#fff">AUTO ON</text></g>
+<text x="844" y="586" text-anchor="middle" font-size="10" class="m">Flow</text><text id="qT" x="844" y="600" text-anchor="middle" font-size="13" font-weight="700">0 m³/h</text>
+<text x="845" y="646" text-anchor="middle" font-size="10" class="m">to plant ▶</text>
+</svg>
+<aside>
+
+<div class="leg"><span><i style="background:#e53935"></i>L1</span><span><i style="background:#f2b705"></i>L2</span><span><i style="background:#1e88e5"></i>L3</span><span><i style="background:#fb8c00"></i>Star point (KM3)</span><span><i style="background:#2e9e4f"></i>Control signal (PLC)</span><span><i style="background:var(--off)"></i>No voltage</span></div>
+
+<div class="stats"><div class="st"><b id="sV">0 V</b><span>Voltage per winding</span></div><div class="st"><b id="sI">0 %</b><span>Current vs direct-on-line</span></div><div class="st"><b id="sN">0 rpm</b><span>Motor speed</span></div></div>
+
+<div class="steps">
+<div class="step" id="p0"><h3>① Ready</h3><p>Supply is on. KM1, KM2, KM3 are all OFF. PLC waits for START from the push-button or HMI.</p></div>
+<div class="step" id="p1"><h3>② Star start (Y)</h3><p>PLC energizes KM1 + KM3. Windings get 230 V, starting current is only about ⅓. Timer T1 runs for 5 s.</p></div>
+<div class="step" id="p2"><h3>③ Changeover</h3><p>T1 done: PLC drops KM3 first, then waits 0.5 s interlock so KM3 and KM2 are never closed together (no short circuit).</p></div>
+<div class="step" id="p3"><h3>④ Delta run (Δ)</h3><p>PLC energizes KM2. Windings get full 400 V → full torque and rated speed. KM1 + KM2 stay on.</p></div>
+</div>
+<p class="sub" style="margin-top:10px">STOP (push-button or HMI) from any step: PLC de-energizes all contactors and the motor coasts to a stop.</p>
+
+<div class="ex"><h3>🏭 Real industrial example: Air-compressor house, textile factory</h3>
+<p>Screw compressor motor: <b>37 kW, 400 V, 50 Hz, In ≈ 68 A, 1450 rpm</b>. Direct-on-line start draws about 7 × In; star-delta cuts that to one third, so the factory voltage does not dip and other machines keep running.</p>
+<div class="br"><span>Direct start (DOL)</span><i><u style="width:100%;background:#d32f2f"></u></i><b>476 A</b></div>
+<div class="br"><span>Star-delta start</span><i><u style="width:33%;background:#fb8c00"></u></i><b>159 A</b></div>
+<div class="br"><span>Live motor current</span><i><u id="xB" style="width:0;background:#2e9e4f"></u></i><b id="xA">0 A</b></div>
+<ul><li><b>MCCB 80 A</b> – short-circuit protection</li>
+<li><b>KM1, KM2: 40 A (AC-3)</b> – carry 0.58 × In = 39 A</li>
+<li><b>KM3 star: 25 A (AC-3)</b> – carries 0.33 × In = 22 A</li>
+<li><b>Overload relay 39 A</b> – set to 0.58 × In (it sits in the delta line)</li>
+<li><b>Star time 5–10 s</b> – compressor starts unloaded (star torque is only ⅓)</li>
+<li>Same method: pumps, fans, conveyors, crushers, mixers</li></ul></div>
+</aside></main>
+<script>
+const $=id=>document.getElementById(id);
+const S={km1:0,km2:0,km3:0,st:'IDLE',t:5,tr:0,speed:0,ang:0,lvl:0,src:'–'},lit={};
+function act(k,src){
+  const n=Date.now()+700;S.src=src;
+  lit[k==='start'?(src==='HMI'?'i2':'i0'):(src==='HMI'?'i3':'i1')]=n;
+  if(k==='start'&&S.st==='IDLE'){S.st='STAR';S.km1=1;S.km3=1;S.t=5}
+  if(k==='stop'){S.km1=S.km2=S.km3=0;S.st='IDLE';S.t=5}
+}
+setInterval(()=>{
+  if(S.st==='STAR'){S.t=Math.max(0,S.t-.1);if(S.t<=0){S.km3=0;S.st='TRANS';S.tr=.5}}
+  else if(S.st==='TRANS'){S.tr-=.1;if(S.tr<=0){S.km2=1;S.st='DELTA'}}
+},100);
+const tg=(id,c)=>$(id).classList.toggle('on',!!c);
+const names={IDLE:'READY / STOPPED',STAR:'STAR START',TRANS:'CHANGEOVER',DELTA:'RUNNING (DELTA)'};
+const idx={IDLE:0,STAR:1,TRANS:2,DELTA:3};
+let last=performance.now(),T=0,lvl=.5,auto=true;
+function run(k,src){S.src=src;if(k==='start'&&S.st==='IDLE'){S.st='STAR';S.km1=1;S.km3=1;S.t=5}if(k==='stop'){S.km1=S.km2=S.km3=0;S.st='IDLE';S.t=5}}
+function tgAuto(){auto=!auto}
+const _a=act;act=function(k,src){if(k==='stop')auto=false;_a(k,src)};
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;T+=dt;
+  const m=S.km1&&(S.km2||S.km3);
+  tg('gLow',S.km1);tg('gWind',m);tg('gDelta',S.km1&&S.km2);tg('gStar',S.km1&&S.km3);
+  tg('tD',S.km2);tg('tS',S.km3);
+  ['k0','k1','k2'].forEach((k,i)=>{const v=[S.km1,S.km2,S.km3][i];$(k).firstElementChild.classList.toggle('on',v);tg('c'+i,v);tg('o'+i,v)});
+  // contact blades
+  [100,200,300].forEach((x,i)=>{const b=$('b'+i);b.setAttribute('x2',S.km1?x:x+14);b.setAttribute('y2',S.km1?135:140)});
+  const n=Date.now();let any=0;
+  ['i0','i1','i2','i3'].forEach(k=>{const v=lit[k]>n;any|=v;tg(k,v)});tg('bus',any);
+  tg('lmS',S.km3);tg('lmR',S.km2);
+  // speed & rotor
+  const target=S.st==='STAR'?1000:S.st==='DELTA'?1450:S.st==='TRANS'?900:0;
+  const tc=S.st==='IDLE'?2.5:1.6;S.speed+=(target-S.speed)*(1-Math.exp(-dt/tc));
+  S.ang=(S.ang+S.speed*.45*dt)%360;$('rot').setAttribute('transform','rotate('+S.ang+' 200 505)');
+  // tank
+  const Q=S.speed/1450*120;lvl=Math.min(1,Math.max(0,lvl+(Q/120*.05-.012)*dt));
+  if(lvl>=.95&&S.st!=='IDLE')run('stop','LS-HIGH trip');
+  if(auto&&lvl<=.2&&S.st==='IDLE')run('start','LS-LOW auto');
+  const wh=104*lvl;$('wtr').setAttribute('y',632-wh);$('wtr').setAttribute('height',wh);$('lvT').textContent=Math.round(lvl*100)+' %';
+  tg('sH',lvl>=.95);tg('sL',lvl<=.2);tg('i4',lvl<=.2);tg('i5',lvl>=.95);tg('gPipe',S.speed>150);tg('gOut',lvl>.02);
+  $('imp').setAttribute('transform','rotate('+S.ang+' 545 610)');$('qT').textContent=Math.round(Q)+' m³/h';
+  $('auT').textContent=auto?'AUTO ON':'AUTO OFF';$('auR').setAttribute('fill',auto?'#2e9e4f':'#7a8696');
+  // texts
+  $('tState').textContent=names[S.st];$('tSrc').textContent='Last cmd: '+S.src;
+  $('tTim').textContent='Star timer T1: '+(S.st==='STAR'?S.t.toFixed(1):S.st==='IDLE'?'5.0':'0.0')+' s';
+  const f=S.st==='STAR'?S.t/5:S.st==='IDLE'?1:0;
+  $('barT').setAttribute('width',190*(S.st==='IDLE'?0:f));$('barP').setAttribute('width',250*(S.st==='IDLE'?0:f));
+  $('sV').textContent=({IDLE:'0',STAR:'230',TRANS:'0',DELTA:'400'})[S.st]+' V';
+  $('sI').textContent=({IDLE:'0',STAR:'33',TRANS:'~10',DELTA:'100'})[S.st]+' %';
+  $('sN').textContent=Math.round(S.speed)+' rpm';$('mRpm').textContent=Math.round(S.speed)+' rpm';
+  const A=({IDLE:0,STAR:159,TRANS:45,DELTA:68})[S.st];$('xB').style.width=A/476*100+'%';$('xA').textContent=A+' A';
+  for(let i=0;i<4;i++)$('p'+i).classList.toggle('act',i===idx[S.st]);
+  // waveforms
+  const tl=S.st==='STAR'?.45:S.st==='DELTA'?.8:S.st==='TRANS'?.12:0;S.lvl+=(tl-S.lvl)*(1-Math.exp(-dt/.25));
+  for(let k=0;k<3;k++){let d='';for(let i=0;i<=80;i++){const x=30+i*430/80,y=615-32*S.lvl*Math.sin(i/80*4*Math.PI-k*2.0944-T*4);d+=(i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1)}$('wv'+k).setAttribute('d',d)}
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body></html>
